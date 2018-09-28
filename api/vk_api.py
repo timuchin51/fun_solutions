@@ -1,36 +1,37 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import requests
-from sys import argv
 
-token = os.environ['SECRET_KEY']
+TOKEN = os.environ['SECRET_KEY']
 
 
-def create_a_query(com_line_arguments):
-    if len(com_line_arguments) == 1:
+def get_user_id():
+    parser = argparse.ArgumentParser(description='VK API script', epilog='enjoy ;)')
+    parser.add_argument('-id', action='store', dest='user_id', help='User id in VK', type=int)
+    args = parser.parse_args()
+    return args.user_id
+
+
+def create_a_query(user_id):
+    if user_id is None:
         return 'return API.users.get({"user_ids": API.friends.getOnline()});'
-    elif len(com_line_arguments) > 2:
-        print('Only one arguments is needed')
-    elif com_line_arguments[1].isdecimal():
-        return 'return API.users.get({"user_ids": API.friends.getOnline({"user_id":%s})});' % com_line_arguments[1]
     else:
-        print('Input right User Id')
-        return False
+        return 'return API.users.get({"user_ids": API.friends.getOnline({"user_id":%s})});' % user_id
 
 
-def get_request_api(execute_code):
+def make_vk_request(execute_code):
     url = 'https://api.vk.com/method/execute'
-    parameters = {'code': execute_code, 'access_token': token, 'v': '5.85'}
+    parameters = {'code': execute_code, 'access_token': TOKEN, 'v': '5.85'}
     response = requests.get(url, params=parameters)
     json_object = response.json()
     return json_object
 
 
 def get_errors_msg(json_object):
-    if json_object.get('execute_errors'):
-        errors_msg = json_object['execute_errors'][0]['error_msg']
-        print(errors_msg)
+    errors_msg = json_object['execute_errors'][0]['error_msg']
+    return errors_msg
 
 
 def get_names(json_object):
@@ -38,6 +39,10 @@ def get_names(json_object):
     names = []
     for item in user_list:
         names.append(item['first_name'] + ' ' + item['last_name'])
+    return names
+
+
+def make_friends_list(names):
     if names:
         return 'Friends online: %s' % ', '.join(names)
     else:
@@ -45,8 +50,11 @@ def get_names(json_object):
 
 
 if __name__ == '__main__':
-    query = create_a_query(argv)
-    if query:
-        request_api = get_request_api(query)
-        get_errors_msg(request_api)
-        friends_online = get_names(request_api)
+    user_id = get_user_id()
+    query = create_a_query(user_id)
+    response_content = make_vk_request(query)
+    if response_content.get('execute_errors'):
+        print(get_errors_msg(response_content))
+    else:
+        friends_online = make_friends_list(get_names(response_content))
+        print(friends_online)
